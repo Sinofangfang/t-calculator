@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple 风格做 T 计算器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --apple-bg: #f5f5f7;
+            --apple-card: rgba(255, 255, 255, 0.9);
+            --apple-blue: #007aff;
+            --apple-red: #ff3b30;
+            --apple-green: #34c759;
+        }
+
+        body {
+            background-color: var(--apple-bg);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            color: #1d1d1f;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom) 16px;
+        }
+
+        .container-box {
+            width: 100%;
+            max-width: 480px;
+            margin: 20px 0;
+        }
+
+        .glass-card {
+            background: var(--apple-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 28px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .segmented-control {
+            display: flex;
+            background: #e3e3e6;
+            padding: 3px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+        }
+
+        .segment-btn {
+            flex: 1;
+            padding: 8px;
+            font-size: 0.9rem;
+            border-radius: 11px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .segment-btn.active {
+            background: #fff;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+            font-weight: 600;
+        }
+
+        .input-item {
+            margin-bottom: 16px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #86868b;
+            margin-bottom: 6px;
+            display: block;
+            padding-left: 4px;
+        }
+
+        input, select {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px;
+            border-radius: 12px;
+            border: 1px solid #d2d2d7;
+            background: #fff;
+            font-size: 16px; /* 避免 iOS 缩放 */
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--apple-blue);
+        }
+
+        .estimate-banner {
+            background: rgba(0, 122, 255, 0.08);
+            color: var(--apple-blue);
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .calculate-btn {
+            background: var(--apple-blue);
+            color: white;
+            font-size: 17px;
+            font-weight: 600;
+            height: 50px;
+            border-radius: 16px;
+            width: 100%;
+            margin-top: 10px;
+            cursor: pointer;
+            active-opacity: 0.7;
+        }
+
+        .share-btn {
+            background: #f2f2f7;
+            color: var(--apple-blue);
+            font-size: 15px;
+            height: 44px;
+            border-radius: 12px;
+            width: 100%;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+            font-size: 13px;
+        }
+
+        .stat-card {
+            background: #fbfbfd;
+            padding: 12px;
+            border-radius: 14px;
+            border: 1px solid #f0f0f2;
+        }
+
+        #toast {
+            position: fixed;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+            backdrop-filter: blur(10px);
+            animation: fadeInOut 2s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translate(-50%, -20px); }
+            15% { opacity: 1; transform: translate(-50%, 0); }
+            85% { opacity: 1; transform: translate(-50%, 0); }
+            100% { opacity: 0; transform: translate(-50%, -20px); }
+        }
+
+        .profit-text { color: var(--apple-red); } /* 股市红涨 */
+        .loss-text { color: var(--apple-green); }
+    </style>
+</head>
+<body>
+
+<div id="toast">已成功复制</div>
+
+<div class="container-box">
+    <div class="glass-card">
+        <h1 class="text-xl font-bold mb-5 text-center tracking-tight">做 T 计算器</h1>
+
+        <div class="segmented-control" id="modeControl">
+            <div class="segment-btn active" data-mode="buy-first">先买后卖 (正T)</div>
+            <div class="segment-btn" data-mode="sell-first">先卖后买 (倒T)</div>
+        </div>
+
+        <!-- 费率设置 -->
+        <div class="grid grid-cols-2 gap-3 mb-5">
+            <div>
+                <label>佣金费率</label>
+                <div class="flex gap-2">
+                    <input type="number" id="commVal" value="0.856" step="0.001" oninput="liveUpdate()">
+                    <select id="commUnit" class="w-24" onchange="liveUpdate()">
+                        <option value="10000">万</option>
+                        <option value="1000">千</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label>单笔最低 (元)</label>
+                <input type="number" id="minFee" value="5" oninput="liveUpdate()">
+            </div>
+        </div>
+
+        <!-- 交易录入区 -->
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="input-item">
+                    <label id="lbl1">买入单价</label>
+                    <input type="number" id="p1" placeholder="0.000" step="0.001" oninput="liveUpdate()">
+                </div>
+                <div class="input-item">
+                    <label id="lbl2">买入股数</label>
+                    <input type="number" id="q1" placeholder="数量" step="100" oninput="liveUpdate()">
+                </div>
+            </div>
+
+            <!-- 动态保本价提示栏 -->
+            <div id="estBar" class="estimate-banner hidden">
+                <span id="estTitle">保本参考:</span>
+                <span id="estPrice" class="font-bold">¥0.0000</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="input-item">
+                    <label id="lbl3">卖出单价</label>
+                    <input type="number" id="p2" placeholder="0.000" step="0.001">
+                </div>
+                <div class="input-item">
+                    <label id="lbl4">卖出股数</label>
+                    <input type="number" id="q2" placeholder="默认相同" step="100">
+                </div>
+            </div>
+        </div>
+
+        <button class="calculate-btn" onclick="runCalc()">立即计算</button>
+
+        <!-- 结果展示 -->
+        <div id="resArea" class="result-section hidden">
+            <div class="text-center mb-4">
+                <div class="text-xs text-gray-500 font-medium">扣费后净盈亏</div>
+                <div id="resProfit" class="text-4xl font-bold mt-1">+0.00</div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="text-[10px] text-gray-400 uppercase">总成交额</div>
+                    <div class="font-semibold text-gray-700" id="statTurnover">¥0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-[10px] text-gray-400 uppercase">印花税(0.05%)</div>
+                    <div class="font-semibold text-orange-600" id="statStamp">¥0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-[10px] text-gray-400 uppercase">双边手续费</div>
+                    <div class="font-semibold text-gray-700" id="statComm">¥0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-[10px] text-gray-400 uppercase">持仓股数变动</div>
+                    <div class="font-semibold text-blue-600" id="statPos">0</div>
+                </div>
+            </div>
+
+            <button class="share-btn" onclick="doCopy()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                复制盈亏结果
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let mode = 'buy-first';
+    const STAMP_RATE = 0.0005;
+
+    // 切换模式
+    document.querySelectorAll('.segment-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            mode = btn.dataset.mode;
+            updateLabels();
+            liveUpdate();
+        };
+    });
+
+    function updateLabels() {
+        const isB = mode === 'buy-first';
+        document.getElementById('lbl1').innerText = isB ? '买入单价' : '卖出单价';
+        document.getElementById('lbl2').innerText = isB ? '买入股数' : '卖出股数';
+        document.getElementById('lbl3').innerText = isB ? '卖出单价' : '买入单价';
+        document.getElementById('lbl4').innerText = isB ? '卖出股数' : '买入股数';
+        document.getElementById('estTitle').innerText = isB ? '保本卖出价:' : '盈利买入价:';
+    }
+
+    function getRate() {
+        return (parseFloat(document.getElementById('commVal').value) || 0) / parseFloat(document.getElementById('commUnit').value);
+    }
+
+    // 核心逻辑：保本估算（针对低价股优化）
+    function liveUpdate() {
+        const p1 = parseFloat(document.getElementById('p1').value);
+        const q1 = parseInt(document.getElementById('q1').value);
+        const minF = parseFloat(document.getElementById('minFee').value) || 0;
+        const rate = getRate();
+        const bar = document.getElementById('estBar');
+        
+        if (!p1 || !q1) {
+            bar.classList.add('hidden');
+            return;
+        }
+
+        let targetP = 0;
+        if (mode === 'buy-first') {
+            // 正T保本公式：(卖价 * q1 * (1 - rate - stamp)) - 卖出手续费(取大) = 买入总支出
+            let buyTotal = p1 * q1 + Math.max(minF, p1 * q1 * rate);
+            
+            // 初始推算
+            targetP = buyTotal / (q1 * (1 - rate - STAMP_RATE));
+            // 二次校验最低手续费
+            if (targetP * q1 * rate < minF) {
+                targetP = (buyTotal + minF) / (q1 * (1 - STAMP_RATE));
+            }
+            // 向上取 0.0001 确保绝对不亏
+            targetP = Math.ceil(targetP * 10000) / 10000;
+        } else {
+            // 倒T：卖出实收 = (买入价 * q1 * (1 + rate)) + 买入手续费(取大)
+            let sellTotal = p1 * q1;
+            let sellFee = Math.max(minF, sellTotal * rate);
+            let sellStamp = sellTotal * STAMP_RATE;
+            let netCash = sellTotal - sellFee - sellStamp;
+            
+            targetP = netCash / (q1 * (1 + rate));
+            if (targetP * q1 * rate < minF) {
+                targetP = (netCash - minF) / q1;
+            }
+            // 向下取 0.0001
+            targetP = Math.floor(targetP * 10000) / 10000;
+        }
+
+        document.getElementById('estPrice').innerText = `¥${targetP.toFixed(4)}`;
+        bar.classList.remove('hidden');
+        
+        // 自动填入数量占位
+        document.getElementById('q2').placeholder = q1;
+    }
+
+    function runCalc() {
+        const p1 = parseFloat(document.getElementById('p1').value);
+        const q1 = parseInt(document.getElementById('q1').value);
+        const p2 = parseFloat(document.getElementById('p2').value);
+        const q2 = parseInt(document.getElementById('q2').value || q1);
+        const rate = getRate();
+        const minF = parseFloat(document.getElementById('minFee').value) || 0;
+
+        if (!p1 || !p2 || !q1) return;
+
+        let buyP, buyQ, sellP, sellQ;
+        if (mode === 'buy-first') {
+            [buyP, buyQ, sellP, sellQ] = [p1, q1, p2, q2];
+        } else {
+            [buyP, buyQ, sellP, sellQ] = [p2, q2, p1, q1];
+        }
+
+        const bCost = buyP * buyQ;
+        const bFee = Math.max(minF, bCost * rate);
+        
+        const sCost = sellP * sellQ;
+        const sFee = Math.max(minF, sCost * rate);
+        const sStamp = sCost * STAMP_RATE;
+
+        // 计算逻辑：以卖出部分的同等股数为基准计算盈亏
+        // 如果买卖股数不等，计算的是这部分“被成交”股数的净利润
+        const netProfit = (sellP * sellQ - sFee - sStamp) - (buyP * sellQ + (bFee * (sellQ/buyQ)));
+
+        // 显示结果
+        document.getElementById('resArea').classList.remove('hidden');
+        const pEl = document.getElementById('resProfit');
+        pEl.innerText = (netProfit >= 0 ? '+' : '') + netProfit.toFixed(2);
+        pEl.className = `text-4xl font-bold mt-1 ${netProfit >= 0 ? 'profit-text' : 'loss-text'}`;
+
+        document.getElementById('statTurnover').innerText = `¥${(bCost + sCost).toFixed(2)}`;
+        document.getElementById('statStamp').innerText = `¥${sStamp.toFixed(2)}`;
+        document.getElementById('statComm').innerText = `¥${(bFee + sFee).toFixed(2)}`;
+        
+        const posChange = (mode === 'buy-first') ? (q1 - q2) : (q2 - q1);
+        document.getElementById('statPos').innerText = (posChange >= 0 ? '+' : '') + posChange;
+    }
+
+    function doCopy() {
+        const profit = document.getElementById('resProfit').innerText;
+        const p1 = document.getElementById('p1').value;
+        const p2 = document.getElementById('p2').value;
+        const txt = `做T盈亏报告\n操作：${p1} -> ${p2}\n净收益：${profit} 元`;
+        
+        const el = document.createElement('textarea');
+        el.value = txt;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+
+        const t = document.getElementById('toast');
+        t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 2000);
+    }
+</script>
+
+</body>
+</html>
